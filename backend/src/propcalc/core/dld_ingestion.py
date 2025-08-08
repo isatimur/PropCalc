@@ -4,10 +4,12 @@ Real DLD (Dubai Land Department) Data Ingestion Module
 
 import logging
 import os
+import csv
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from io import StringIO
+from typing import Any, AsyncGenerator
 
 import aiohttp
 
@@ -193,6 +195,63 @@ class DLDDataIngestion:
             logger.error(f"Error parsing transactions: {e}")
 
         return transactions
+
+    def _parse_csv_row(self, row: dict[str, str]) -> DLDTransaction | None:
+        """Convert a CSV row into a transaction object"""
+        try:
+            return DLDTransaction(
+                transaction_id=row.get('transaction_id', ''),
+                property_type=row.get('property_type', ''),
+                location=row.get('location', ''),
+                transaction_date=datetime.fromisoformat(row.get('transaction_date', '')),
+                price_aed=float(row.get('price_aed', 0) or 0),
+                area_sqft=float(row.get('area_sqft', 0) or 0),
+                developer_name=row.get('developer_name', ''),
+                transaction_type=row.get('transaction_type', ''),
+                property_id=row.get('property_id', ''),
+                unit_number=row.get('unit_number') or None,
+                building_name=row.get('building_name') or None,
+                project_name=row.get('project_name') or None,
+                floor_number=int(row['floor_number']) if row.get('floor_number') else None,
+                bedrooms=int(row['bedrooms']) if row.get('bedrooms') else None,
+                bathrooms=int(row['bathrooms']) if row.get('bathrooms') else None,
+                parking_spaces=int(row['parking_spaces']) if row.get('parking_spaces') else None,
+                view=row.get('view')
+            )
+        except Exception as e:
+            logger.error(f"Error parsing CSV row: {e}")
+            return None
+
+    async def stream_transactions_csv(self, url: str) -> AsyncGenerator[DLDTransaction, None]:
+        """Stream DLD transactions from a large CSV file"""
+        try:
+            async with self.session.get(url) as response:
+                if response.status != 200:
+                    logger.error(f"DLD CSV download error: {response.status}")
+                    return
+                header = None
+                buffer = ""
+                async for chunk in response.content.iter_chunked(1024):
+                    buffer += chunk.decode('utf-8')
+                    while '\n' in buffer:
+                        line, buffer = buffer.split('\n', 1)
+                        if header is None:
+                            header = next(csv.reader([line]))
+                            continue
+                        if not line.strip():
+                            continue
+                        row = next(csv.DictReader([line], fieldnames=header))
+                        transaction = self._parse_csv_row(row)
+                        if transaction:
+                            yield transaction
+                if buffer.strip() and header:
+                    row = next(csv.DictReader([buffer], fieldnames=header))
+                    transaction = self._parse_csv_row(row)
+                    if transaction:
+                        yield transaction
+        except Exception as e:
+            logger.error(f"Error streaming DLD transactions: {e}")
+            return
 
     def validate_transaction(self, transaction: DLDTransaction) -> bool:
         """Validate a single transaction"""

@@ -201,6 +201,39 @@ class TestDLDDataIngestion:
                 assert transactions[0].transaction_id == "DLD_001"
                 assert transactions[1].transaction_id == "DLD_002"
 
+    @pytest.mark.asyncio
+    async def test_stream_transactions_csv(self, ingestion):
+        """Test streaming of transactions from CSV without full download"""
+        csv_content = (
+            "transaction_id,property_type,location,transaction_date,price_aed,area_sqft,"
+            "developer_name,transaction_type,property_id\n"
+            "T1,Apartment,Dubai Marina,2024-01-01T00:00:00,1000000,900,Emaar,Sale,ID1\n"
+            "T2,Villa,Palm Jumeirah,2024-01-02T00:00:00,2000000,1500,Nakheel,Sale,ID2\n"
+        ).encode('utf-8')
+
+        class MockContent:
+            def __init__(self, data):
+                self.data = data
+
+            async def iter_chunked(self, size):
+                for i in range(0, len(self.data), size):
+                    yield self.data[i:i + size]
+
+        with patch('aiohttp.ClientSession.get') as mock_get:
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.content = MockContent(csv_content)
+            mock_get.return_value.__aenter__.return_value = mock_response
+
+            async with ingestion as ing:
+                transactions = [
+                    t async for t in ing.stream_transactions_csv('http://example.com/transactions.csv')
+                ]
+
+                assert len(transactions) == 2
+                assert transactions[0].transaction_id == "T1"
+                assert transactions[1].transaction_id == "T2"
+
     def test_validate_transaction_valid(self, ingestion):
         """Test validation of valid transaction"""
         transaction = DLDTransaction(
