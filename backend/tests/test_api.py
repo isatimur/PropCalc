@@ -2,6 +2,7 @@ import io
 
 import pandas as pd
 import pytest
+import simple_db
 from fastapi.testclient import TestClient
 from main import app
 from simple_db import init_db
@@ -13,7 +14,18 @@ def setup_database():
     """Setup test database before each test"""
     init_db()
     yield
-    # Cleanup after test
+    # Cleanup after test to ensure fresh state
+    db = simple_db.get_db()
+    cursor = db.connection.cursor()
+    cursor.executescript(
+        """
+        DROP TABLE IF EXISTS projects;
+        DROP TABLE IF EXISTS developers;
+        DROP TABLE IF EXISTS transactions;
+        """
+    )
+    db.close()
+    simple_db._db_instance = None
 
 class TestHealthEndpoints:
     def test_root_health_check(self):
