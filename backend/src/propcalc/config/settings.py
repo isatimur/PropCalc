@@ -3,12 +3,12 @@ Settings configuration for PropCalc
 Modern Pydantic Settings with environment variable support
 """
 
-import os
 from typing import Optional, List
 from functools import lru_cache
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     """Application settings with environment variable support"""
@@ -116,10 +116,9 @@ class Settings(BaseSettings):
             raise ValueError(f"Log level must be one of {allowed}")
         return v.upper()
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False
+    )
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -152,8 +151,8 @@ class ProductionSettings(Settings):
 
 def get_environment_settings() -> Settings:
     """Get environment-specific settings"""
-    env = os.getenv("ENVIRONMENT", "production").lower()
-    
+    env = get_settings().environment
+
     if env == "development":
         return DevelopmentSettings()
     elif env == "staging":
