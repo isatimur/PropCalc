@@ -7,7 +7,7 @@ import os
 from typing import Optional, List
 from functools import lru_cache
 
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -101,14 +101,14 @@ class Settings(BaseSettings):
     )
     
     # Validation
-    @validator("environment")
+    @field_validator("environment")
     def validate_environment(cls, v):
         allowed = ["development", "staging", "production"]
         if v not in allowed:
             raise ValueError(f"Environment must be one of {allowed}")
         return v
-    
-    @validator("log_level")
+
+    @field_validator("log_level")
     def validate_log_level(cls, v):
         allowed = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if v.upper() not in allowed:
