@@ -102,14 +102,15 @@ class Settings(BaseSettings):
     
     # Validation
     @field_validator("environment")
-    def validate_environment(cls, v):
+    def validate_environment(cls, v: str) -> str:
         allowed = ["development", "staging", "production"]
-        if v not in allowed:
+        value = v.lower()
+        if value not in allowed:
             raise ValueError(f"Environment must be one of {allowed}")
-        return v
+        return value
 
     @field_validator("log_level")
-    def validate_log_level(cls, v):
+    def validate_log_level(cls, v: str) -> str:
         allowed = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if v.upper() not in allowed:
             raise ValueError(f"Log level must be one of {allowed}")
