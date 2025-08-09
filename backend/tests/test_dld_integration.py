@@ -4,6 +4,7 @@ Comprehensive tests for DLD integration module
 
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
+import asyncio
 
 import pytest
 
@@ -129,80 +130,158 @@ class TestDLDDataIngestion:
         """Create DLD ingestion instance"""
         return DLDDataIngestion()
 
-    @pytest.mark.asyncio
-    async def test_fetch_recent_transactions_success(self, ingestion, mock_dld_data):
+    def test_fetch_recent_transactions_success(self, ingestion, mock_dld_data):
         """Test successful fetching of recent transactions"""
-        with patch('aiohttp.ClientSession.get') as mock_get:
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json.return_value = mock_dld_data
-            mock_get.return_value.__aenter__.return_value = mock_response
+        async def run():
+            with patch('aiohttp.ClientSession.get') as mock_get:
+                mock_response = AsyncMock()
+                mock_response.status = 200
+                mock_response.json.return_value = mock_dld_data
+                mock_get.return_value.__aenter__.return_value = mock_response
 
-            async with ingestion as ing:
-                transactions = await ing.fetch_recent_transactions(hours=4)
+                async with ingestion as ing:
+                    transactions = await ing.fetch_recent_transactions(hours=4)
 
-                assert len(transactions) == 2
-                assert transactions[0].transaction_id == "DLD_001"
-                assert transactions[0].property_type == "Apartment"
-                assert transactions[0].location == "Dubai Marina"
-                assert transactions[0].price_aed == 2500000.0
-                assert transactions[0].area_sqft == 1200.0
-                assert transactions[0].developer_name == "Emaar Properties"
-                assert transactions[0].bedrooms == 2
-                assert transactions[0].bathrooms == 2
-                assert transactions[0].parking_spaces == 1
-                assert transactions[0].view == "Marina View"
+                    assert len(transactions) == 2
+                    assert transactions[0].transaction_id == "DLD_001"
+                    assert transactions[0].property_type == "Apartment"
+                    assert transactions[0].location == "Dubai Marina"
+                    assert transactions[0].price_aed == 2500000.0
+                    assert transactions[0].area_sqft == 1200.0
+                    assert transactions[0].developer_name == "Emaar Properties"
+                    assert transactions[0].bedrooms == 2
+                    assert transactions[0].bathrooms == 2
+                    assert transactions[0].parking_spaces == 1
+                    assert transactions[0].view == "Marina View"
 
-                assert transactions[1].transaction_id == "DLD_002"
-                assert transactions[1].property_type == "Villa"
-                assert transactions[1].location == "Palm Jumeirah"
-                assert transactions[1].price_aed == 3500000.0
+                    assert transactions[1].transaction_id == "DLD_002"
+                    assert transactions[1].property_type == "Villa"
+                    assert transactions[1].location == "Palm Jumeirah"
+                    assert transactions[1].price_aed == 3500000.0
 
-    @pytest.mark.asyncio
-    async def test_fetch_recent_transactions_api_error(self, ingestion):
+        asyncio.run(run())
+
+    def test_fetch_recent_transactions_api_error(self, ingestion):
         """Test handling of API errors"""
-        with patch('aiohttp.ClientSession.get') as mock_get:
-            mock_response = AsyncMock()
-            mock_response.status = 500
-            mock_get.return_value.__aenter__.return_value = mock_response
+        async def run():
+            with patch('aiohttp.ClientSession.get') as mock_get:
+                mock_response = AsyncMock()
+                mock_response.status = 500
+                mock_get.return_value.__aenter__.return_value = mock_response
 
-            async with ingestion as ing:
-                transactions = await ing.fetch_recent_transactions(hours=4)
-                assert len(transactions) == 0
+                async with ingestion as ing:
+                    transactions = await ing.fetch_recent_transactions(hours=4)
+                    assert len(transactions) == 0
 
-    @pytest.mark.asyncio
-    async def test_fetch_recent_transactions_exception(self, ingestion):
+        asyncio.run(run())
+
+    def test_fetch_recent_transactions_exception(self, ingestion):
         """Test handling of exceptions"""
-        with patch('aiohttp.ClientSession.get') as mock_get:
-            mock_get.side_effect = Exception("Network error")
+        async def run():
+            with patch('aiohttp.ClientSession.get') as mock_get:
+                mock_get.side_effect = Exception("Network error")
 
-            async with ingestion as ing:
-                transactions = await ing.fetch_recent_transactions(hours=4)
-                assert len(transactions) == 0
+                async with ingestion as ing:
+                    transactions = await ing.fetch_recent_transactions(hours=4)
+                    assert len(transactions) == 0
 
-    @pytest.mark.asyncio
-    async def test_fetch_transactions_by_date_range(self, ingestion, mock_dld_data):
+        asyncio.run(run())
+
+    def test_fetch_transactions_by_date_range(self, ingestion, mock_dld_data):
         """Test fetching transactions by date range"""
-        with patch('aiohttp.ClientSession.get') as mock_get:
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json.return_value = mock_dld_data
-            mock_get.return_value.__aenter__.return_value = mock_response
+        async def run():
+            with patch('aiohttp.ClientSession.get') as mock_get:
+                mock_response = AsyncMock()
+                mock_response.status = 200
+                mock_response.json.return_value = mock_dld_data
+                mock_get.return_value.__aenter__.return_value = mock_response
 
-            start_date = datetime.now() - timedelta(days=7)
-            end_date = datetime.now()
+                start_date = datetime.now() - timedelta(days=7)
+                end_date = datetime.now()
 
-            async with ingestion as ing:
-                transactions = await ing.fetch_transactions_by_date_range(
-                    start_date, end_date, limit=1000
-                )
+                async with ingestion as ing:
+                    transactions = await ing.fetch_transactions_by_date_range(
+                        start_date, end_date, limit=1000
+                    )
 
-                assert len(transactions) == 2
-                assert transactions[0].transaction_id == "DLD_001"
-                assert transactions[1].transaction_id == "DLD_002"
+                    assert len(transactions) == 2
+                    assert transactions[0].transaction_id == "DLD_001"
+                    assert transactions[1].transaction_id == "DLD_002"
 
-    @pytest.mark.asyncio
-    async def test_stream_transactions_csv(self, ingestion):
+        asyncio.run(run())
+
+    def test_stream_transactions_paginated(self, ingestion):
+        """Test streaming transactions across multiple pages"""
+        page1 = {
+            "transactions": [
+                {
+                    "transaction_id": "DLD_001",
+                    "property_type": "Apartment",
+                    "location": "Dubai Marina",
+                    "transaction_date": "2024-01-25T08:30:00",
+                    "price_aed": 1000000,
+                    "area_sqft": 900,
+                    "developer_name": "Dev1",
+                    "transaction_type": "Sale",
+                    "property_id": "ID1",
+                },
+                {
+                    "transaction_id": "DLD_002",
+                    "property_type": "Villa",
+                    "location": "Palm Jumeirah",
+                    "transaction_date": "2024-01-26T08:30:00",
+                    "price_aed": 2000000,
+                    "area_sqft": 1500,
+                    "developer_name": "Dev2",
+                    "transaction_type": "Sale",
+                    "property_id": "ID2",
+                },
+            ]
+        }
+        page2 = {
+            "transactions": [
+                {
+                    "transaction_id": "DLD_003",
+                    "property_type": "Apartment",
+                    "location": "Downtown",
+                    "transaction_date": "2024-01-27T08:30:00",
+                    "price_aed": 1500000,
+                    "area_sqft": 1100,
+                    "developer_name": "Dev3",
+                    "transaction_type": "Sale",
+                    "property_id": "ID3",
+                }
+            ]
+        }
+        async def run():
+            with patch('aiohttp.ClientSession.get') as mock_get:
+                resp1 = AsyncMock()
+                resp1.status = 200
+                resp1.json.return_value = page1
+                resp2 = AsyncMock()
+                resp2.status = 200
+                resp2.json.return_value = page2
+                mock_get.side_effect = [
+                    AsyncMock(__aenter__=AsyncMock(return_value=resp1), __aexit__=AsyncMock(return_value=None)),
+                    AsyncMock(__aenter__=AsyncMock(return_value=resp2), __aexit__=AsyncMock(return_value=None)),
+                ]
+
+                start_date = datetime.now() - timedelta(days=7)
+                end_date = datetime.now()
+                async with ingestion as ing:
+                    transactions = [
+                        t async for t in ing.stream_transactions_paginated(
+                            start_date, end_date, page_size=2
+                        )
+                    ]
+
+                    assert len(transactions) == 3
+                    assert transactions[0].transaction_id == "DLD_001"
+                    assert transactions[2].transaction_id == "DLD_003"
+
+        asyncio.run(run())
+
+    def test_stream_transactions_csv(self, ingestion):
         """Test streaming of transactions from CSV without full download"""
         csv_content = (
             "transaction_id,property_type,location,transaction_date,price_aed,area_sqft,"
@@ -219,20 +298,23 @@ class TestDLDDataIngestion:
                 for i in range(0, len(self.data), size):
                     yield self.data[i:i + size]
 
-        with patch('aiohttp.ClientSession.get') as mock_get:
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.content = MockContent(csv_content)
-            mock_get.return_value.__aenter__.return_value = mock_response
+        async def run():
+            with patch('aiohttp.ClientSession.get') as mock_get:
+                mock_response = AsyncMock()
+                mock_response.status = 200
+                mock_response.content = MockContent(csv_content)
+                mock_get.return_value.__aenter__.return_value = mock_response
 
-            async with ingestion as ing:
-                transactions = [
-                    t async for t in ing.stream_transactions_csv('http://example.com/transactions.csv')
-                ]
+                async with ingestion as ing:
+                    transactions = [
+                        t async for t in ing.stream_transactions_csv('http://example.com/transactions.csv')
+                    ]
 
-                assert len(transactions) == 2
-                assert transactions[0].transaction_id == "T1"
-                assert transactions[1].transaction_id == "T2"
+                    assert len(transactions) == 2
+                    assert transactions[0].transaction_id == "T1"
+                    assert transactions[1].transaction_id == "T2"
+
+        asyncio.run(run())
 
     def test_validate_transaction_valid(self, ingestion):
         """Test validation of valid transaction"""
@@ -436,19 +518,20 @@ class TestDLDDataIngestion:
         assert quality_report.quality_level == DataQualityLevel.POOR
         assert len(quality_report.errors) == 70
 
-    @pytest.mark.asyncio
-    async def test_get_ingestion_status(self, ingestion):
+    def test_get_ingestion_status(self, ingestion):
         """Test getting ingestion status"""
-        status = await ingestion.get_ingestion_status()
+        async def run():
+            status = await ingestion.get_ingestion_status()
 
-        assert "status" in status
-        assert "timestamp" in status
-        assert "api_connected" in status
-        assert "data_source" in status
-        assert status["data_source"] == DLDDataSource.OFFICIAL_API.value
+            assert "status" in status
+            assert "timestamp" in status
+            assert "api_connected" in status
+            assert "data_source" in status
+            assert status["data_source"] == DLDDataSource.OFFICIAL_API.value
 
-    @pytest.mark.asyncio
-    async def test_process_and_store_transactions(self, ingestion):
+        asyncio.run(run())
+
+    def test_process_and_store_transactions(self, ingestion):
         """Test processing and storing transactions"""
         transactions = [
             DLDTransaction(
@@ -475,15 +558,18 @@ class TestDLDDataIngestion:
             )
         ]
 
-        result = await ingestion.process_and_store_transactions(transactions)
+        async def run():
+            result = await ingestion.process_and_store_transactions(transactions)
 
-        assert result["status"] == "success"
-        assert result["total_processed"] == 2
-        assert result["valid_stored"] == 2
-        assert "quality_report" in result
-        assert result["quality_report"]["quality_score"] == 100.0
-        assert result["quality_report"]["quality_level"] == "excellent"
-        assert "timestamp" in result
+            assert result["status"] == "success"
+            assert result["total_processed"] == 2
+            assert result["valid_stored"] == 2
+            assert "quality_report" in result
+            assert result["quality_report"]["quality_score"] == 100.0
+            assert result["quality_report"]["quality_level"] == "excellent"
+            assert "timestamp" in result
+
+        asyncio.run(run())
 
 
 class TestDataQualityLevel:

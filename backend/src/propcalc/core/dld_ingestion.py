@@ -164,6 +164,48 @@ class DLDDataIngestion:
             logger.error(f"Error fetching DLD transactions: {e}")
             return []
 
+    async def stream_transactions_paginated(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        location: str | None = None,
+        property_type: str | None = None,
+        page_size: int = 1000,
+    ) -> AsyncGenerator[DLDTransaction, None]:
+        """Stream transactions using pagination to handle large result sets."""
+        page = 1
+        while True:
+            params = {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "limit": page_size,
+                "page": page,
+                "format": "json",
+            }
+            if location:
+                params["location"] = location
+            if property_type:
+                params["property_type"] = property_type
+            try:
+                async with self.session.get(
+                    f"{self.api_base_url}/transactions", params=params
+                ) as response:
+                    if response.status != 200:
+                        logger.error(f"DLD API error: {response.status}")
+                        break
+                    data = await response.json()
+            except Exception as e:
+                logger.error(f"Error streaming DLD transactions: {e}")
+                break
+            transactions = self._parse_transactions(data)
+            if not transactions:
+                break
+            for tx in transactions:
+                yield tx
+            if len(transactions) < page_size:
+                break
+            page += 1
+
     def _parse_transactions(self, data: dict[str, Any]) -> list[DLDTransaction]:
         """Parse raw DLD data into transaction objects"""
         transactions = []
