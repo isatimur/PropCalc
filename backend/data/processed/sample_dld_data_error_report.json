@@ -1,0 +1,14 @@
+{
+  "file_info": {
+    "file_name": "sample_dld_data.csv",
+    "file_path": "data/sample_dld_data.csv",
+    "error_occurred_at": "2025-08-19T21:39:46.933472",
+    "processing_time_seconds": 0.01
+  },
+  "error_details": {
+    "error_message": "'DLDEtlPipeline' object has no attribute '_generate_data_quality_summary'",
+    "error_type": "Pipeline Failure",
+    "pipeline_step": "Unknown"
+  },
+  "status": "Failed"
+}

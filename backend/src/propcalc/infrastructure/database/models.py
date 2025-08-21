@@ -3,20 +3,20 @@ SQLAlchemy models for PropCalc database
 Modern models with Pydantic integration and best practices
 """
 
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from enum import Enum
 
 from sqlalchemy import (
-    Integer, String, DateTime, Boolean, Numeric, Text, 
+    Integer, String, DateTime, Date, Boolean, Numeric, Text, 
     ForeignKey, Index, UniqueConstraint, CheckConstraint
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB, ENUM
 from pydantic import BaseModel, Field, ConfigDict
-import uuid
+import uuid as uuid_lib
 
 Base = declarative_base()
 
@@ -43,6 +43,18 @@ class DataSourceEnum(str, Enum):
     DLD_SCHEDULED = "DLD_SCHEDULED"
     MANUAL = "Manual"
     IMPORT = "Import"
+
+class UserRoleEnum(str, Enum):
+    ADMIN = "admin"
+    ANALYST = "analyst"
+    VIEWER = "viewer"
+    DEVELOPER = "developer"
+
+class UserStatusEnum(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
+    PENDING_VERIFICATION = "pending_verification"
 
 # Pydantic Models for API
 class DLDAreaBase(BaseModel):
@@ -81,7 +93,7 @@ class DLDTransactionCreate(DLDTransactionBase):
 
 class DLDTransaction(DLDTransactionBase):
     id: int
-    uuid: uuid.UUID
+    uuid: uuid_lib.UUID
     market_type_id: Optional[int] = None
     procedure_id: Optional[int] = None
     quality_score: Optional[Decimal] = None
@@ -162,7 +174,6 @@ class DLDArea(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    transactions: Mapped[List["DLDTransaction"]] = relationship("DLDTransaction", back_populates="area")
     market_statistics: Mapped[List["AreaMarketStatistics"]] = relationship("AreaMarketStatistics", back_populates="area")
     kml_mappings: Mapped[List["DLDKMLAreaMapping"]] = relationship("DLDKMLAreaMapping", back_populates="dld_area")
     
@@ -175,44 +186,40 @@ class DLDTransaction(Base):
     __tablename__ = "dld_transactions"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uuid: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False)
-    transaction_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    property_type: Mapped[PropertyTypeEnum] = mapped_column(ENUM(PropertyTypeEnum), nullable=False)
-    location: Mapped[str] = mapped_column(String(255), nullable=False)
-    transaction_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    price_aed: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
-    area_sqft: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    developer_name: Mapped[Optional[str]] = mapped_column(String(255))
-    project_name: Mapped[Optional[str]] = mapped_column(String(255))
-    unit_number: Mapped[Optional[str]] = mapped_column(String(50))
-    floor_number: Mapped[Optional[int]] = mapped_column(Integer)
-    bedrooms: Mapped[Optional[int]] = mapped_column(Integer)
-    bathrooms: Mapped[Optional[int]] = mapped_column(Integer)
-    parking_spaces: Mapped[Optional[int]] = mapped_column(Integer)
-    area_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("dld_areas.area_id"))
-    market_type_id: Mapped[Optional[int]] = mapped_column(Integer)
-    procedure_id: Mapped[Optional[int]] = mapped_column(Integer)
-    quality_score: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2))
-    data_source: Mapped[DataSourceEnum] = mapped_column(ENUM(DataSourceEnum), default=DataSourceEnum.DLD_CSV)
-    checksum: Mapped[Optional[str]] = mapped_column(String(64))
-    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    verification_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    uuid: Mapped[uuid_lib.UUID] = mapped_column(PGUUID(as_uuid=True), default=uuid_lib.uuid4, unique=True, nullable=False)
+    transaction_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    property_type: Mapped[Optional[str]] = mapped_column(String(100))
+    location: Mapped[Optional[str]] = mapped_column(String(200))
+    area: Mapped[Optional[str]] = mapped_column(String(200))
+    transaction_date: Mapped[Optional[date]] = mapped_column(Date)
+    price_aed: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    area_sqft: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
+    price_per_sqft: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
+    developer_name: Mapped[Optional[str]] = mapped_column(String(200))
+    project_name: Mapped[Optional[str]] = mapped_column(String(200))
+    property_usage: Mapped[Optional[str]] = mapped_column(String(100))
+    property_subtype: Mapped[Optional[str]] = mapped_column(String(100))
+    rooms: Mapped[Optional[int]] = mapped_column(Integer)
+    parking: Mapped[Optional[int]] = mapped_column(Integer)
+    nearest_metro: Mapped[Optional[str]] = mapped_column(String(200))
+    nearest_mall: Mapped[Optional[str]] = mapped_column(String(200))
+    nearest_landmark: Mapped[Optional[str]] = mapped_column(String(200))
+    registration_type: Mapped[Optional[str]] = mapped_column(String(100))
+    buyer_nationality: Mapped[Optional[str]] = mapped_column(String(100))
+    seller_nationality: Mapped[Optional[str]] = mapped_column(String(100))
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    processed: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    data_source: Mapped[Optional[str]] = mapped_column(String(100), default="DLD_STREAM")
     
-    # Relationships
-    area: Mapped[Optional["DLDArea"]] = relationship("DLDArea", back_populates="transactions")
+    # Relationships - no foreign key relationships exist in database schema
     
     __table_args__ = (
-        Index("idx_dld_transactions_area", "area_id"),
         Index("idx_dld_transactions_date", "transaction_date"),
         Index("idx_dld_transactions_developer", "developer_name"),
         Index("idx_dld_transactions_location", "location"),
         Index("idx_dld_transactions_price", "price_aed"),
-        Index("idx_dld_transactions_quality", "quality_score"),
-        Index("idx_dld_transactions_verified", "is_verified"),
-        CheckConstraint("price_aed > 0", name="dld_transactions_price_aed_check"),
-        CheckConstraint("area_sqft > 0", name="dld_transactions_area_sqft_check"),
+        Index("idx_dld_transactions_data_source", "data_source"),
     )
 
 class GeographicArea(Base):
@@ -308,15 +315,253 @@ class APIUsage(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     endpoint: Mapped[str] = mapped_column(String(255), nullable=False)
     method: Mapped[str] = mapped_column(String(10), nullable=False)
-    user_id: Mapped[Optional[int]] = mapped_column(Integer)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"))
     ip_address: Mapped[Optional[str]] = mapped_column(String(45))
     user_agent: Mapped[Optional[str]] = mapped_column(Text)
     response_time_ms: Mapped[Optional[int]] = mapped_column(Integer)
     status_code: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
+    # Relationships
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="api_usage")
+    
     __table_args__ = (
         Index("idx_api_usage_endpoint", "endpoint"),
-        Index("idx_api_usage_user", "user_id"),
-        Index("idx_api_usage_created", "created_at"),
-    ) 
+        Index("idx_api_usage_user_id", "user_id"),
+        Index("idx_api_usage_created_at", "created_at"),
+    )
+
+# ============================================================================
+# User and Authentication Models
+# ============================================================================
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    uuid: Mapped[uuid_lib.UUID] = mapped_column(PGUUID(as_uuid=True), default=uuid_lib.uuid4, unique=True, nullable=False)
+    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[UserRoleEnum] = mapped_column(ENUM(UserRoleEnum), default=UserRoleEnum.VIEWER)
+    status: Mapped[UserStatusEnum] = mapped_column(ENUM(UserStatusEnum), default=UserStatusEnum.PENDING_VERIFICATION)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    email_verification_token: Mapped[Optional[str]] = mapped_column(String(255))
+    password_reset_token: Mapped[Optional[str]] = mapped_column(String(255))
+    password_reset_expires: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    login_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    api_usage: Mapped[List["APIUsage"]] = relationship("APIUsage", back_populates="user")
+    
+    __table_args__ = (
+        Index("idx_users_username", "username"),
+        Index("idx_users_email", "email"),
+        Index("idx_users_role", "role"),
+        Index("idx_users_status", "status"),
+        Index("idx_users_created_at", "created_at"),
+    )
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    session_token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    refresh_token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45))
+    user_agent: Mapped[Optional[str]] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user: Mapped["User"] = relationship("User")
+    
+    __table_args__ = (
+        Index("idx_user_sessions_user_id", "user_id"),
+        Index("idx_user_sessions_session_token", "session_token"),
+        Index("idx_user_sessions_refresh_token", "refresh_token"),
+        Index("idx_user_sessions_expires_at", "expires_at"),
+    )
+
+class UserActivity(Base):
+    __tablename__ = "user_activities"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    activity_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45))
+    user_agent: Mapped[Optional[str]] = mapped_column(Text)
+    activity_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user: Mapped["User"] = relationship("User")
+    
+    __table_args__ = (
+        Index("idx_user_activities_user_id", "user_id"),
+        Index("idx_user_activities_activity_type", "activity_type"),
+        Index("idx_user_activities_created_at", "created_at"),
+    )
+
+# ============================================================================
+# Area Mapping and Region Hierarchy Models
+# ============================================================================
+
+class AreaMapping(Base):
+    __tablename__ = "area_mapping"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    dld_area_id: Mapped[Optional[str]] = mapped_column(String(10), ForeignKey("dld_areas_lookup.area_id"))
+    dld_area_name: Mapped[Optional[str]] = mapped_column(String(200))
+    internet_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    region_category: Mapped[Optional[str]] = mapped_column(String(100))
+    municipality: Mapped[Optional[str]] = mapped_column(String(100))
+    popularity_score: Mapped[int] = mapped_column(Integer, default=0)
+    avg_price_aed: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    min_price_aed: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    max_price_aed: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    price_trend: Mapped[Optional[str]] = mapped_column(String(50))
+    transaction_volume: Mapped[int] = mapped_column(Integer, default=0)
+    last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    dld_area: Mapped[Optional["DLDAreaLookup"]] = relationship("DLDAreaLookup", foreign_keys=[dld_area_id])
+    analytics: Mapped[List["AreaAnalytics"]] = relationship("AreaAnalytics", back_populates="area_mapping")
+    
+    __table_args__ = (
+        Index("idx_area_mapping_internet_name", "internet_name"),
+        Index("idx_area_mapping_normalized_name", "normalized_name"),
+        Index("idx_area_mapping_region_category", "region_category"),
+        Index("idx_area_mapping_dld_area_name", "dld_area_name"),
+    )
+
+class RegionHierarchy(Base):
+    __tablename__ = "region_hierarchy"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    parent_region_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("region_hierarchy.id"))
+    region_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    region_type: Mapped[Optional[str]] = mapped_column(String(100))
+    level: Mapped[int] = mapped_column(Integer, default=1)
+    coordinates_lat: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 8))
+    coordinates_lng: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 8))
+    bounding_box: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    parent_region: Mapped[Optional["RegionHierarchy"]] = relationship("RegionHierarchy", remote_side=[id])
+    child_regions: Mapped[List["RegionHierarchy"]] = relationship("RegionHierarchy", back_populates="parent_region")
+    
+    __table_args__ = (
+        Index("idx_region_hierarchy_parent", "parent_region_id"),
+        Index("idx_region_hierarchy_type", "region_type"),
+        Index("idx_region_hierarchy_level", "level"),
+    )
+
+class AreaAnalytics(Base):
+    __tablename__ = "area_analytics"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    area_mapping_id: Mapped[int] = mapped_column(Integer, ForeignKey("area_mapping.id"), nullable=False)
+    analysis_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    total_transactions: Mapped[int] = mapped_column(Integer, default=0)
+    total_volume_aed: Mapped[Optional[Decimal]] = mapped_column(Numeric(20, 2))
+    avg_price_aed: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    median_price_aed: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    min_price_aed: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    max_price_aed: Mapped[Optional[Decimal]] = mapped_column(Numeric(15, 2))
+    price_per_sqft_avg: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
+    transaction_trend: Mapped[Optional[str]] = mapped_column(String(50))
+    market_sentiment: Mapped[Optional[str]] = mapped_column(String(50))
+    top_property_types: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)
+    top_developers: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    area_mapping: Mapped["AreaMapping"] = relationship("AreaMapping", back_populates="analytics")
+    
+    __table_args__ = (
+        Index("idx_area_analytics_date", "analysis_date"),
+        Index("idx_area_analytics_area", "area_mapping_id"),
+        UniqueConstraint("area_mapping_id", "analysis_date", name="uq_area_analytics_date"),
+    )
+
+# Pydantic Models for Area Mapping API
+class AreaMappingBase(BaseModel):
+    dld_area_name: Optional[str] = Field(None, max_length=200, description="DLD area name")
+    internet_name: str = Field(..., max_length=200, description="Internet-friendly area name")
+    normalized_name: str = Field(..., max_length=200, description="Normalized area name for search")
+    region_category: Optional[str] = Field(None, max_length=100, description="Region category")
+    municipality: Optional[str] = Field(None, max_length=100, description="Municipality")
+    popularity_score: int = Field(default=0, ge=0, le=100, description="Popularity score 0-100")
+
+class AreaMappingCreate(AreaMappingBase):
+    pass
+
+class AreaMapping(AreaMappingBase):
+    id: int
+    dld_area_id: Optional[str] = None
+    avg_price_aed: Optional[Decimal] = None
+    min_price_aed: Optional[Decimal] = None
+    max_price_aed: Optional[Decimal] = None
+    price_trend: Optional[str] = None
+    transaction_volume: int = 0
+    last_updated: datetime
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class AreaAnalyticsBase(BaseModel):
+    analysis_date: datetime = Field(..., description="Analysis date")
+    total_transactions: int = Field(default=0, ge=0, description="Total transactions")
+    total_volume_aed: Optional[Decimal] = Field(None, ge=0, description="Total volume in AED")
+    avg_price_aed: Optional[Decimal] = Field(None, ge=0, description="Average price in AED")
+    median_price_aed: Optional[Decimal] = Field(None, ge=0, description="Median price in AED")
+    min_price_aed: Optional[Decimal] = Field(None, ge=0, description="Minimum price in AED")
+    max_price_aed: Optional[Decimal] = Field(None, ge=0, description="Maximum price in AED")
+    price_per_sqft_avg: Optional[Decimal] = Field(None, ge=0, description="Average price per sqft")
+
+class AreaAnalytics(AreaAnalyticsBase):
+    id: int
+    area_mapping_id: int
+    transaction_trend: Optional[str] = None
+    market_sentiment: Optional[str] = None
+    top_property_types: Optional[Dict[str, Any]] = None
+    top_developers: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class RegionOverview(BaseModel):
+    id: int
+    dld_area_name: Optional[str] = None
+    internet_name: str
+    normalized_name: str
+    region_category: Optional[str] = None
+    municipality: Optional[str] = None
+    popularity_score: int
+    avg_price_aed: Optional[Decimal] = None
+    min_price_aed: Optional[Decimal] = None
+    max_price_aed: Optional[Decimal] = None
+    price_trend: Optional[str] = None
+    transaction_volume: int
+    total_transactions: Optional[int] = None
+    total_volume_aed: Optional[Decimal] = None
+    median_price_aed: Optional[Decimal] = None
+    price_per_sqft_avg: Optional[Decimal] = None
+    market_sentiment: Optional[str] = None
+    last_updated: datetime
+    
+    model_config = ConfigDict(from_attributes=True) 

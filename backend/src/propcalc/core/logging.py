@@ -10,7 +10,51 @@ import sys
 from datetime import datetime
 from typing import Any
 
-from loguru import logger
+try:
+    from loguru import logger  # type: ignore
+except Exception:  # pragma: no cover - provide fallback if loguru is unavailable
+    class _StdLoggerAdapter:
+        def __init__(self) -> None:
+            self._logger = logging.getLogger("propcalc")
+            if not self._logger.handlers:
+                handler = logging.StreamHandler(sys.stdout)
+                formatter = logging.Formatter(
+                    "%(asctime)s | %(levelname)s | %(name)s:%(funcName)s:%(lineno)d | %(message)s"
+                )
+                handler.setFormatter(formatter)
+                self._logger.addHandler(handler)
+                self._logger.setLevel(logging.INFO)
+
+        # Compatibility methods used in this module
+        def add(self, *_args, **_kwargs):
+            return 0
+
+        def remove(self, *_args, **_kwargs):
+            pass
+
+        def bind(self, **_kwargs):
+            return self
+
+        def level(self, name):  # noqa: D401
+            return type("L", (), {"name": name})
+
+        def opt(self, **_kwargs):
+            return self
+
+        # Logging methods
+        def info(self, *args, **kwargs):
+            self._logger.info(*args, **kwargs)
+
+        def warning(self, *args, **kwargs):
+            self._logger.warning(*args, **kwargs)
+
+        def error(self, *args, **kwargs):
+            self._logger.error(*args, **kwargs)
+
+        def log(self, _level, message, **_kwargs):
+            self._logger.info(message)
+
+    logger = _StdLoggerAdapter()  # type: ignore
 
 
 class InterceptHandler(logging.Handler):

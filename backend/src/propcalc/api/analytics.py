@@ -1,7 +1,7 @@
 import logging
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 
 from ..core.ai_workers.enhanced_scoring import (
     calculate_enhanced_vantage_score,
@@ -10,7 +10,7 @@ from ..core.ai_workers.enhanced_scoring import (
 )
 from ..core.ai_workers.scoring_logic import calculate_vantage_score
 from ..core.metrics import track_request_metrics
-from ..infrastructure.database import postgres_db, simple_db
+from ..infrastructure.database.postgres_db import get_db_instance
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -20,10 +20,8 @@ USE_POSTGRES = True
 async def get_top_performers(limit: int = Query(5, ge=1, le=20)):
     """Get top performing projects by vantage score"""
     try:
-        if USE_POSTGRES:
-            performers = postgres_db.get_top_performers(limit)
-        else:
-            performers = simple_db.get_top_performers(limit)
+        db = await get_db_instance()
+        performers = await db.get_top_performers(limit)
 
         return performers
     except Exception as e:
@@ -35,10 +33,8 @@ async def get_vantage_score(project_id: int):
     """Get vantage score for a specific project"""
     try:
         # Get project data
-        if USE_POSTGRES:
-            project = postgres_db.get_project_by_id(project_id)
-        else:
-            project = simple_db.get_project_by_id(project_id)
+        db = await get_db_instance()
+        project = await db.get_project_by_id(project_id)
 
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
@@ -123,7 +119,7 @@ async def upload_dld_transactions(file: UploadFile = File(...)):
                             continue
                     conn.commit()
         else:
-            transactions_processed = simple_db.upload_dld_transactions(df)
+            transactions_processed = await postgres_db.upload_dld_transactions(df)
 
         return {
             "message": "DLD transactions uploaded successfully",

@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install uv
 
 # Copy dependency files
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies
 RUN uv sync --frozen
@@ -35,7 +35,7 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -c "import socket; socket.create_connection(('localhost', 8000), timeout=5)" || exit 1
 
 # Run the application
-CMD ["uv", "run", "python", "main.py"]
+CMD ["uv", "run", "python", "-m", "uvicorn", "src.propcalc.main:app", "--host", "0.0.0.0", "--port", "8000"]

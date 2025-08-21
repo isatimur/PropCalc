@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _model = None
 _scaler = None
 
-def calculate_enhanced_vantage_score(project_data: dict[str, Any]) -> float:
+def calculate_enhanced_vantage_score(project_data: dict[str, Any]) -> tuple[float, float]:
     """Calculate enhanced Vantage Score using ML"""
     global _model, _scaler
 
@@ -23,13 +23,30 @@ def calculate_enhanced_vantage_score(project_data: dict[str, Any]) -> float:
         _model = RandomForestRegressor(n_estimators=100, random_state=42)
         _scaler = StandardScaler()
         logger.info("Enhanced Vantage Score model initialized")
+        
+        # Train model with dummy data for now (in production, this would be real training data)
+        dummy_features = [
+            [1000000, 1000, 80, 75, 0.05, 85, 70, 80, 75, 70],  # High-end property
+            [500000, 800, 60, 65, 0.02, 70, 60, 65, 60, 55],     # Mid-range property
+            [200000, 500, 40, 55, -0.01, 55, 50, 55, 50, 45],    # Affordable property
+            [800000, 1200, 70, 70, 0.03, 75, 65, 70, 65, 60],   # Good property
+            [300000, 600, 45, 60, 0.01, 60, 55, 60, 55, 50],    # Average property
+        ]
+        dummy_scores = [95, 75, 45, 80, 55]  # Corresponding scores
+        
+        # Fit scaler and transform features
+        features_scaled = _scaler.fit_transform(dummy_features)
+        
+        # Train model
+        _model.fit(features_scaled, dummy_scores)
+        logger.info("Enhanced Vantage Score model trained with dummy data")
 
     try:
         # Extract features
         features = extract_features(project_data)
 
-        # Scale features
-        features_scaled = _scaler.fit_transform([features])
+        # Scale features (use transform, not fit_transform)
+        features_scaled = _scaler.transform([features])
 
         # Make prediction
         score = _model.predict(features_scaled)[0]
@@ -37,10 +54,13 @@ def calculate_enhanced_vantage_score(project_data: dict[str, Any]) -> float:
         # Ensure score is within reasonable bounds
         score = max(0, min(100, score))
 
-        return float(score)
+        # Calculate confidence
+        confidence = get_prediction_confidence(project_data)
+
+        return float(score), float(confidence)
     except Exception as e:
         logger.error(f"Error calculating enhanced Vantage Score: {e}")
-        return 50.0  # Default score
+        return 50.0, 0.5  # Default score and confidence
 
 def get_prediction_confidence(project_data: dict[str, Any]) -> float:
     """Get prediction confidence for Vantage Score"""

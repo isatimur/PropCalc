@@ -2,22 +2,39 @@
 
 PropCalc is a comprehensive real estate analytics platform that provides market analysis, property valuation, and investment insights using advanced AI and machine learning techniques.
 
+## 🎉 **STABLE RELEASE v2.1.0**
+
+**Release Date**: December 19, 2024  
+**Status**: Production Ready ✅  
+**Key Improvements**: Connection Pool Management, Testing Infrastructure, Error Handling
+
+### 🚀 **What's New in 2.1.0**
+
+- ✅ **Production-Ready Connection Pooling** with health monitoring
+- ✅ **Comprehensive Testing Infrastructure** (Backend: pytest, Frontend: Jest)
+- ✅ **Enhanced Error Handling** and structured logging
+- ✅ **Database Performance Optimization** with connection management
+- ✅ **Frontend Testing Setup** with React Testing Library
+- ✅ **Integration Test Support** for all API endpoints
+
 ## 🏗️ Project Structure
 
 ```
 PropCalc/
 ├── backend/                 # FastAPI backend with AI/ML capabilities
 │   ├── src/propcalc/       # Main application code
-│   ├── tests/              # Backend tests
+│   ├── tests/              # Backend tests (pytest)
 │   ├── alembic/            # Database migrations
 │   └── scripts/            # Utility scripts
 ├── frontend/               # Next.js React frontend
 │   ├── src/app/            # Next.js app router pages
 │   ├── src/components/     # React components
+│   ├── src/__tests__/      # Frontend tests (Jest)
 │   └── src/lib/            # Utility functions
 ├── monitoring/             # Grafana dashboards and Prometheus config
 ├── docker-compose.yml      # Development environment
-└── deploy.sh              # Deployment script
+├── deploy.sh              # Deployment script
+└── CHANGELOG.md           # Release notes and changes
 ```
 
 ## 🚀 Quick Start

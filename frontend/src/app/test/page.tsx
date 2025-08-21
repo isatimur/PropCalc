@@ -9,7 +9,7 @@ export default function TestPage() {
 
   useEffect(() => {
     // Test health endpoint
-    fetch('http://localhost:8000/')
+    fetch('http://localhost:8001/')
       .then(response => response.json())
       .then(data => {
         setHealthStatus(JSON.stringify(data, null, 2));
@@ -20,7 +20,7 @@ export default function TestPage() {
       });
 
     // Test projects endpoint
-    fetch('http://localhost:8000/api/v1/projects')
+    fetch('http://localhost:8001/api/v1/projects')
       .then(response => response.json())
       .then(data => {
         setProjectsStatus(JSON.stringify(data, null, 2));

@@ -188,12 +188,9 @@ class AuthManager:
         # In production, this would query the database
         for user in self.users.values():
             if user.email == email:
-                # For demo purposes, accept any password for admin
-                if user.role == UserRole.ADMIN and password == "admin123":
+                # Verify password hash for all users
+                if self._verify_password(password, user.hashed_password):
                     return user
-                # For other users, verify password hash
-                # if self._verify_password(password, user.hashed_password):
-                #     return user
         return None
 
     async def create_user(self, email: str, username: str, full_name: str,
@@ -350,8 +347,8 @@ class AuthManager:
                 detail="User not found"
             )
 
-        # Verify old password (simplified for demo)
-        if user.role == UserRole.ADMIN and old_password != "admin123":
+        # Verify old password
+        if not self._verify_password(old_password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Incorrect old password"

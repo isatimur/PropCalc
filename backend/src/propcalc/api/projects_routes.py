@@ -1,33 +1,35 @@
+#!/usr/bin/env python3
 """
-Projects API Routes
+Projects Routes - Real estate project management and analytics endpoints
 """
-
-import logging
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List, Optional, Dict, Any
+import logging
+from datetime import datetime
 
 from ..domain.security.oauth2 import User, get_current_user
-from ..infrastructure.database.postgres_db import get_db_pool
+from ..infrastructure.database.postgres_db import get_db_instance
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["projects"])
 
-@router.get("/projects")
+@router.get("/projects", response_model=Dict[str, Any])
 async def get_projects(
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    location: str | None = None,
-    property_type: str | None = None,
-    min_price: float | None = None,
-    max_price: float | None = None
+    location: Optional[str] = Query(None, description="Filter by location"),
+    property_type: Optional[str] = Query(None, description="Filter by property type"),
+    min_price: Optional[float] = Query(None, description="Minimum price filter"),
+    max_price: Optional[float] = Query(None, description="Maximum price filter"),
+    current_user: User = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Get real projects data from database with pagination and filters"""
     try:
-        db_pool = get_db_pool()
-
-        async with db_pool.acquire() as conn:
+        db_instance = await get_db_instance()
+        conn = await db_instance.get_connection()
+        try:
             # Build query with filters
             query = """
                 SELECT
@@ -108,6 +110,8 @@ async def get_projects(
                 "offset": offset,
                 "has_more": offset + limit < (total_count or 0)
             }
+        finally:
+            await db_instance.release_connection(conn)
 
     except Exception as e:
         logger.error(f"Error getting projects: {e}")
@@ -117,14 +121,14 @@ async def get_projects(
 async def get_project(project_id: str, current_user: User = Depends(get_current_user)) -> dict[str, Any]:
     """Get specific project details from database"""
     try:
-        db_pool = get_db_pool()
-
-        async with db_pool.acquire() as conn:
+        db_instance = await get_db_instance()
+        conn = await db_instance.get_connection()
+        try:
             # Extract numeric ID from project_id
             try:
                 numeric_id = int(project_id.replace("proj-", ""))
             except ValueError:
-                raise HTTPException(status_code=404, detail="Project not found")
+                raise HTTPException(status_code=400, detail="Invalid project ID format")
 
             # Get project data
             project_data = await conn.fetchrow(
@@ -147,33 +151,8 @@ async def get_project(project_id: str, current_user: User = Depends(get_current_
             if not project_data:
                 raise HTTPException(status_code=404, detail="Project not found")
 
-            # Calculate Vantage Score (placeholder)
-            vantage_score = 80.0
-
-            # Get similar properties
-            similar_properties = await conn.fetch(
-                """
-                SELECT
-                    id,
-                    location,
-                    property_type,
-                    price_aed as price
-                FROM dld_transactions
-                WHERE location = $1 AND id != $2
-                ORDER BY transaction_date DESC
-                LIMIT 3
-                """,
-                project_data['location'], numeric_id
-            )
-
-            # Format similar properties
-            similar = []
-            for prop in similar_properties:
-                similar.append({
-                    "id": f"proj-{prop['id']:03d}",
-                    "name": f"{prop['location']} {prop['property_type']}",
-                    "price": prop['price'] or 0
-                })
+            # Calculate Vantage Score (placeholder - would be calculated)
+            vantage_score = 80.0  # This would be calculated from real Vantage Score data
 
             project = {
                 "id": f"proj-{project_data['id']:03d}",
@@ -191,78 +170,101 @@ async def get_project(project_id: str, current_user: User = Depends(get_current_
                 "view": None,  # Not available in current schema
                 "completion_date": None,  # Not available in current schema
                 "dld_id": project_data['dld_id'],
-                "created_at": project_data['created_at'].isoformat() if project_data['created_at'] else None,
-                "amenities": [
-                    "Swimming Pool",
-                    "Gym",
-                    "Concierge",
-                    "Parking",
-                    "Security"
-                ],
-                "description": f"Property in {project_data['location']} with {project_data['property_type']} type",
-                "floor_plan": f"{project_data['property_type']}-{project_data['area']}sqft",
-                "payment_plan": "80/20",
-                "maintenance_fee": 12000,
-                "similar_properties": similar
+                "created_at": project_data['created_at'].isoformat() if project_data['created_at'] else None
             }
 
             return project
+        finally:
+            await db_instance.release_connection(conn)
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting project {project_id}: {e}")
+        logger.error(f"Error getting project: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch project")
 
-@router.get("/projects/search")
-async def search_projects(
-    q: str = Query(..., min_length=2),
-    limit: int = Query(10, ge=1, le=50),
-    current_user: User = Depends(get_current_user)
-) -> dict[str, Any]:
-    """Search real projects by name, location, or developer"""
+@router.get("/projects/{project_id}/analytics")
+async def get_project_analytics(project_id: str, current_user: User = Depends(get_current_user)) -> dict[str, Any]:
+    """Get project analytics and insights"""
     try:
-        db_pool = get_db_pool()
+        db_instance = await get_db_instance()
+        conn = await db_instance.get_connection()
+        try:
+            # Extract numeric ID from project_id
+            try:
+                numeric_id = int(project_id.replace("proj-", ""))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid project ID format")
 
-        async with db_pool.acquire() as conn:
-            # Search in location, property_type, and developer_name
-            search_results = await conn.fetch(
+            # Get project data for analytics
+            project_data = await conn.fetchrow(
                 """
                 SELECT
-                    id,
                     location,
                     property_type,
-                    price_aed as price,
-                    developer_name as developer
+                    price_aed,
+                    area_sqft,
+                    developer_name
                 FROM dld_transactions
-                WHERE
-                    location ILIKE $1 OR
-                    property_type ILIKE $1 OR
-                    developer_name ILIKE $1
-                ORDER BY transaction_date DESC
-                LIMIT $2
+                WHERE id = $1
                 """,
-                f"%{q}%", limit
+                numeric_id
             )
 
-            # Format results
-            results = []
-            for result in search_results:
-                vantage_score = 80.0  # Placeholder
+            if not project_data:
+                raise HTTPException(status_code=404, detail="Project not found")
 
-                results.append({
-                    "id": f"proj-{result['id']:03d}",
-                    "name": f"{result['location']} {result['property_type']}",
-                    "location": result['location'] or "Unknown",
-                    "property_type": result['property_type'] or "Unknown",
-                    "price": result['price'] or 0,
-                    "vantage_score": vantage_score
-                })
+            # Get market comparison data
+            market_comparison = await conn.fetchrow(
+                """
+                SELECT
+                    AVG(price_aed) as market_avg_price,
+                    AVG(area_sqft) as market_avg_area,
+                    COUNT(*) as market_total_properties
+                FROM dld_transactions
+                WHERE location = $1 AND property_type = $2
+                """,
+                project_data['location'], project_data['property_type']
+            )
 
-            return {
-                "results": results,
-                "total": len(results),
-                "query": q
+            # Calculate price per sqft
+            project_price_per_sqft = project_data['price_aed'] / project_data['area_sqft'] if project_data['area_sqft'] else 0
+            market_price_per_sqft = market_comparison['market_avg_price'] / market_comparison['market_avg_area'] if market_comparison['market_avg_area'] else 0
+
+            # Calculate price positioning
+            price_positioning = "above_market"
+            if project_price_per_sqft <= market_price_per_sqft * 0.9:
+                price_positioning = "below_market"
+            elif project_price_per_sqft <= market_price_per_sqft * 1.1:
+                price_positioning = "market_rate"
+
+            analytics = {
+                "project_id": project_id,
+                "price_analysis": {
+                    "project_price": project_data['price_aed'],
+                    "project_price_per_sqft": round(project_price_per_sqft, 2),
+                    "market_avg_price": round(market_comparison['market_avg_price'] or 0, 2),
+                    "market_avg_price_per_sqft": round(market_price_per_sqft, 2),
+                    "price_positioning": price_positioning
+                },
+                "market_context": {
+                    "location": project_data['location'],
+                    "property_type": project_data['property_type'],
+                    "total_properties_in_area": market_comparison['market_total_properties'] or 0
+                },
+                "recommendations": [
+                    "Consider market timing for optimal pricing",
+                    "Analyze comparable properties in the area",
+                    "Monitor market trends for price adjustments"
+                ]
             }
 
+            return analytics
+        finally:
+            await db_instance.release_connection(conn)
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error searching projects: {e}")
-        raise HTTPException(status_code=500, detail="Failed to search projects")
+        logger.error(f"Error getting project analytics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch project analytics")

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..core.metrics import track_request_metrics
 from ..infrastructure.cache.redis_cache import cache_developers_list
-from ..infrastructure.database import postgres_db, simple_db
+from ..infrastructure.database import postgres_db
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -19,39 +19,12 @@ async def get_developers(
     try:
         track_request_metrics("get_developers")
 
-        if USE_POSTGRES:
-            with postgres_db.get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT
-                            id, name, established_year, track_record_score,
-                            financial_stability_score, customer_satisfaction_score,
-                            completed_projects_count, total_project_value
-                        FROM developers
-                        WHERE is_active = true
-                        ORDER BY track_record_score DESC
-                        LIMIT %s OFFSET %s
-                    """, (limit, offset))
-
-                    developers = []
-                    for row in cursor.fetchall():
-                        developers.append({
-                            "id": row[0],
-                            "name": row[1],
-                            "established_year": row[2],
-                            "track_record_score": float(row[3]) if row[3] else 0.0,
-                            "financial_stability_score": float(row[4]) if row[4] else 0.0,
-                            "customer_satisfaction_score": float(row[5]) if row[5] else 0.0,
-                            "completed_projects_count": row[6] or 0,
-                            "total_project_value": float(row[7]) if row[7] else 0.0
-                        })
-
-                    # Cache the developers data
-                    result = {"developers": developers, "total": len(developers)}
-                    result = cache_developers_list(result)
-                    return result
-        else:
-            return simple_db.get_developers(limit, offset)
+        developers = await postgres_db.get_developers(limit, offset)
+        
+        # Cache the developers data
+        result = {"developers": developers, "total": len(developers)}
+        result = cache_developers_list(result)
+        return result
 
     except Exception as e:
         logger.error(f"Error getting developers: {e}")
@@ -61,10 +34,7 @@ async def get_developers(
 async def get_developer(developer_id: int):
     """Get a specific developer by ID"""
     try:
-        if USE_POSTGRES:
-            developer = postgres_db.get_developer_by_id(developer_id)
-        else:
-            developer = simple_db.get_developer_by_id(developer_id)
+        developer = await postgres_db.get_developer_by_id(developer_id)
 
         if not developer:
             raise HTTPException(status_code=404, detail="Developer not found")

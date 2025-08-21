@@ -14,56 +14,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/normalization", tags=["normalization"])
 
-@router.get("/demo")
-async def get_normalization_demo() -> dict:
-    """
-    Public demo endpoint for normalization lookup (no authentication required)
-
-    Returns:
-        Dictionary with demo normalization examples
-    """
-    try:
-        # Demo examples
-        demo_examples = {
-            "area_normalization": {
-                "Marsa Dubai": normalization_lookup.normalize_area("Marsa Dubai"),
-                "Burj Khalifa": normalization_lookup.normalize_area("Burj Khalifa"),
-                "Palm Jumeirah": normalization_lookup.normalize_area("Palm Jumeirah"),
-                "Business Bay": normalization_lookup.normalize_area("Business Bay")
-            },
-            "property_type_normalization": {
-                "Unit": normalization_lookup.normalize_property_type("Unit"),
-                "Land": normalization_lookup.normalize_property_type("Land"),
-                "Building": normalization_lookup.normalize_property_type("Building"),
-                "Apartment": normalization_lookup.normalize_property_type("Apartment")
-            },
-            "developer_normalization": {
-                "Emaar": normalization_lookup.normalize_developer("Emaar"),
-                "DAMAC": normalization_lookup.normalize_developer("DAMAC"),
-                "Nakheel": normalization_lookup.normalize_developer("Nakheel")
-            },
-            "project_normalization": {
-                "Marina Heights": normalization_lookup.normalize_project("Marina Heights"),
-                "Palm Vista Villa": normalization_lookup.normalize_project("Palm Vista Villa"),
-                "Downtown Tower": normalization_lookup.normalize_project("Downtown Tower")
-            }
-        }
-
-        # Get statistics
-        stats = normalization_lookup.get_normalization_stats()
-
-        return {
-            "status": "success",
-            "message": "Normalization lookup demo",
-            "data": {
-                "demo_examples": demo_examples,
-                "statistics": stats
-            }
-        }
-
-    except Exception as e:
-        logger.error(f"Error in normalization demo: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get normalization demo: {str(e)}")
+# Demo route removed - only real data processing allowed
 
 @router.get("/stats")
 async def get_normalization_stats(

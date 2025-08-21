@@ -6,8 +6,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://vantage_user:vantage_password@db:5432/vantage_ai
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://vantage_user:vantage_password@db:5432/vantage_ai}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - SECRET_KEY=${SECRET_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
     depends_on:
       - db
       - redis
@@ -20,7 +22,7 @@ services:
     environment:
       - POSTGRES_DB=vantage_ai
       - POSTGRES_USER=vantage_user
-      - POSTGRES_PASSWORD=vantage_password
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-vantage_password}
     ports:
       - "5432:5432"
     volumes:

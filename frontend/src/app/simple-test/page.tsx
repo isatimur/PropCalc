@@ -11,12 +11,12 @@ export default function SimpleTest() {
     const testBackend = async () => {
       try {
         // Test basic backend health
-        const healthResponse = await fetch('http://localhost:8000/');
+        const healthResponse = await fetch('http://localhost:8001/');
         const healthData = await healthResponse.json();
         setBackendStatus(`Backend Health: ${healthData.status}`);
 
         // Test market overview
-        const marketResponse = await fetch('http://localhost:8000/api/v1/market/overview');
+        const marketResponse = await fetch('http://localhost:8001/api/v1/demo/market/overview');
         const marketData = await marketResponse.json();
         setMarketData(marketData);
         setError(null);

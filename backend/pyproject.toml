@@ -4,16 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "propcalc-backend"
-version = "2.0.0"
-description = "Advanced Real Estate Analytics Platform with AI-powered insights"
-readme = "README.md"
+version = "2.1.0"
+description = "Advanced Real Estate Analytics Platform with AI-powered insights - STABLE RELEASE"
+readme = {file = "README.md", content-type = "text/markdown"}
 license = {text = "MIT"}
 authors = [
     {name = "PropCalc Team", email = "team@propcalc.ai"}
 ]
 keywords = ["real-estate", "analytics", "ai", "machine-learning", "dubai"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -34,8 +34,10 @@ dependencies = [
     "sqlalchemy>=2.0.25",
     "pandas>=2.2.0",
     "numpy>=1.24.0",
-    "scikit-learn>=1.4.0",
+    # scikit-learn is optional at import-time; tests do not require training
+    # "scikit-learn>=1.4.0",
     "pyjwt>=2.8.0",
+    "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "python-multipart>=0.0.6",
     "sentry-sdk[fastapi]>=1.38.0",
@@ -46,7 +48,11 @@ dependencies = [
     "loguru>=0.7.3",
     "pydantic-settings>=2.10.1",
     "alembic>=1.16.4",
-    "uuid>=1.30",
+    "aiofiles>=23.2.1",
+    "unidecode>=1.4.0",
+    "greenlet>=3.2.3",
+    "scikit-learn>=1.7.1",
+    "openpyxl>=3.1.0",
 ]
 
 [project.optional-dependencies]

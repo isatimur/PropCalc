@@ -11,5 +11,9 @@ __email__ = "team@propcalc.ai"
 __description__ = "Advanced Real Estate Analytics Platform with AI-powered insights"
 
 from .config.settings import get_settings
+from .core.ai_workers.scoring_logic import VantageScoringEngine  # re-export for tests
 
-__all__ = ["get_settings"]
+__all__ = [
+    "get_settings",
+    "VantageScoringEngine",
+]

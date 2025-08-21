@@ -15,17 +15,21 @@ from ..core.ai_workers.scoring_logic import calculate_vantage_score
 from ..core.ai_workers.train_model import train_and_evaluate_model
 from ..core.metrics import track_request_metrics
 from ..core.performance.rate_limiter import get_rate_limiter
+from ..domain.models import (
+    EnhancedScoreRequest, CompareScoresRequest, TrainModelRequest,
+    APIResponse, ErrorResponse, ProjectData
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 @router.post("/api/v1/ai/calculate-enhanced-score")
-async def calculate_enhanced_vantage_score_endpoint(project_data: dict, request: Request):
+async def calculate_enhanced_vantage_score_endpoint(request: EnhancedScoreRequest, http_request: Request):
     """Calculate enhanced Vantage Score using machine learning"""
     try:
         # Rate limiting check
         rate_limiter = get_rate_limiter()
-        client_id = rate_limiter.get_client_identifier(request)
+        client_id = rate_limiter.get_client_identifier(http_request)
         allowed, rate_info = rate_limiter.check_rate_limit("/api/v1/ai/calculate-enhanced-score", client_id)
 
         if not allowed:
@@ -40,36 +44,52 @@ async def calculate_enhanced_vantage_score_endpoint(project_data: dict, request:
 
         track_request_metrics("calculate_enhanced_vantage_score")
 
-        # Calculate enhanced score
-        enhanced_score, breakdown = calculate_enhanced_vantage_score(project_data)
-        confidence = get_prediction_confidence(project_data)
+        # Convert validated model to dict for compatibility
+        project_data = request.project_data.model_dump()
 
-        return {
-            "enhanced_vantage_score": enhanced_score,
-            "confidence": confidence,
-            "breakdown": breakdown,
-            "algorithm": "Enhanced ML + Traditional Hybrid",
-            "model_version": "1.0"
-        }
+        # Calculate enhanced score
+        try:
+            enhanced_score, confidence = calculate_enhanced_vantage_score(project_data)
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Enhanced scoring failed, falling back to traditional: {e}")
+            # Fallback to traditional scoring
+            enhanced_score = calculate_vantage_score(project_data)
+            confidence = 0.8
+
+        return APIResponse(
+            status="success",
+            data={
+                "enhanced_vantage_score": enhanced_score,
+                "confidence": confidence,
+                "algorithm": "Enhanced ML + Traditional Hybrid",
+                "model_version": "1.0"
+            },
+            timestamp=time.time()
+        )
 
     except Exception as e:
         logger.error(f"Error calculating enhanced vantage score: {e}")
         raise HTTPException(status_code=500, detail="Failed to calculate enhanced score")
 
 @router.post("/api/v1/ai/train-model")
-async def train_vantage_model_endpoint():
+async def train_vantage_model_endpoint(request: TrainModelRequest):
     """Train the Vantage Score machine learning model"""
     try:
         track_request_metrics("train_vantage_model")
 
-        # Train the model with 2000 samples
-        results = train_and_evaluate_model(num_samples=2000)
+        # Train the model with specified parameters
+        results = train_and_evaluate_model(num_samples=request.num_samples)
 
-        return {
-            "status": "success",
-            "training_results": results,
-            "message": "Model training completed successfully"
-        }
+        return APIResponse(
+            status="success",
+            data={
+                "training_results": results,
+                "algorithm": request.algorithm,
+                "num_samples": request.num_samples
+            },
+            message="Model training completed successfully",
+            timestamp=time.time()
+        )
 
     except Exception as e:
         logger.error(f"Error training model: {e}")
@@ -119,29 +139,48 @@ async def get_model_status():
         raise HTTPException(status_code=500, detail="Failed to get model status")
 
 @router.post("/api/v1/ai/compare-scores")
-async def compare_traditional_vs_enhanced(project_data: dict):
+async def compare_traditional_vs_enhanced(request: CompareScoresRequest):
     """Compare traditional vs enhanced Vantage Score calculation"""
     try:
         track_request_metrics("compare_scores")
 
+        # Convert validated model to dict for compatibility
+        project_data = request.project_data.model_dump()
+
         # Calculate traditional score
-        traditional_score, traditional_breakdown = calculate_vantage_score(project_data)
+        traditional_score = calculate_vantage_score(project_data)
+        traditional_breakdown = {
+            "price_score": project_data.get('price', 0),
+            "location_score": project_data.get('location_score', 0),
+            "developer_score": project_data.get('developer_score', 0),
+            "area_score": project_data.get('area', 0),
+            "market_trend_score": project_data.get('market_trend', 0)
+        }
 
         # Calculate enhanced score
-        enhanced_score, enhanced_breakdown = calculate_enhanced_vantage_score(project_data)
+        try:
+            enhanced_score, enhanced_breakdown = calculate_enhanced_vantage_score(project_data)
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Enhanced scoring failed, falling back to traditional: {e}")
+            enhanced_score = traditional_score
+            enhanced_breakdown = traditional_breakdown
 
         # Calculate difference
         score_difference = enhanced_score - traditional_score
 
-        return {
-            "traditional_score": traditional_score,
-            "enhanced_score": enhanced_score,
-            "score_difference": round(score_difference, 1),
-            "improvement_percentage": round((score_difference / traditional_score) * 100, 1) if traditional_score > 0 else 0,
-            "traditional_breakdown": traditional_breakdown,
-            "enhanced_breakdown": enhanced_breakdown,
-            "recommendation": "Use Enhanced Score" if abs(score_difference) > 5 else "Scores are similar"
-        }
+        return APIResponse(
+            status="success",
+            data={
+                "traditional_score": traditional_score,
+                "enhanced_score": enhanced_score,
+                "score_difference": round(score_difference, 1),
+                "improvement_percentage": round((score_difference / traditional_score) * 100, 1) if traditional_score > 0 else 0,
+                "traditional_breakdown": traditional_breakdown,
+                "enhanced_breakdown": enhanced_breakdown,
+                "recommendation": "Use Enhanced Score" if abs(score_difference) > 5 else "Scores are similar"
+            },
+            timestamp=time.time()
+        )
 
     except Exception as e:
         logger.error(f"Error comparing scores: {e}")

@@ -2,12 +2,10 @@
 # Defines the local development environment for Vantage AI.
 # Includes the PostgreSQL database, Redis cache, and the Backend API.
 
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15-alpine
+    image: postgres:latest
     container_name: vantage_ai_postgres
     environment:
       POSTGRES_DB: vantage_ai
@@ -17,7 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - vantage_ai_network
     healthcheck:
@@ -31,7 +29,7 @@ services:
     image: redis:7-alpine
     container_name: vantage_ai_redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -54,13 +52,14 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=vantage_ai
       - POSTGRES_USER=vantage_user
-      - POSTGRES_PASSWORD=vantage_password
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-vantage_password}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
-      - ENVIRONMENT=production
-      - LOG_LEVEL=INFO
-      - SENTRY_DSN=https://28da87cdadd23de7e63550ea7863fa73@o4509755805466624.ingest.de.sentry.io/4509755814051920
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SECRET_KEY=${SECRET_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
     ports:
       - "8000:8000"
     depends_on:
@@ -75,7 +74,7 @@ services:
       - /app/__pycache__
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8000), timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -87,12 +86,12 @@ services:
       dockerfile: Dockerfile
     container_name: vantage_ai_frontend
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - SENTRY_DSN=https://e055cb14a40a222e7c8aeeb4366af8cc@o4509755805466624.ingest.de.sentry.io/4509755842166864
-      - SENTRY_ENVIRONMENT=production
+      - NODE_ENV=${NODE_ENV:-production}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
     ports:
-      - "3000:3000"
+      - "3004:3000"
     depends_on:
       - backend
     networks:
@@ -146,9 +145,9 @@ services:
     image: grafana/grafana:latest
     container_name: vantage_ai_grafana
     ports:
-      - "3001:3000"
+      - "3003:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=vantage_ai_admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-vantage_ai_admin}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro

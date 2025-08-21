@@ -12,27 +12,20 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from .api.ai import router as ai_router
 from .api.analytics import router as analytics_router
 from .api.auth import router as auth_router
-from .api.comprehensive_dld_routes import router as comprehensive_dld_router
+from .api.unified_dld_routes import router as unified_dld_router
 from .api.developer import router as developer_router
-
-# Import DLD integration modules
-from .api.dld_routes import router as dld_router
 from .api.gdpr import router as gdpr_router
-from .api.market_demo_routes import router as market_demo_router
-
 # Import new API modules
 from .api.market_routes import router as market_router
 from .api.normalization_routes import router as normalization_router
 from .api.pipeline_routes import router as pipeline_router
 from .api.projects_routes import router as projects_router
-from .api.real_dld_routes import router as real_dld_router
-from .api.realtime_dld_routes import router as realtime_dld_router
 from .api.system import router as system_router
-from .api.vantage_score_demo import router as vantage_score_router
+from .api.area_mapping_routes import router as area_mapping_router
 
 # Import AI and monitoring modules
 from .core.exceptions import *
-from .core.performance.connection_pool import init_connection_pools
+from .core.performance.connection_pool import init_connection_pools, close_connection_pools
 
 # Import performance optimization modules
 from .core.performance.rate_limiter import get_rate_limiter, init_rate_limiter
@@ -45,78 +38,95 @@ from .infrastructure.cache.redis_cache import (
     init_redis,
 )
 from .infrastructure.database.postgres_db import (
-    close_connection_pool,
-    init_connection_pool,
+    close_db,
+    get_db_instance,
 )
-
-# Import database modules
-from .infrastructure.database.simple_db import init_db as init_simple_db
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Database configuration - Use PostgreSQL by default
-USE_POSTGRES = os.getenv('USE_POSTGRES', 'true').lower() == 'true'
+# Database configuration - Always use PostgreSQL for production
+logger.info("Using PostgreSQL database")
 
-# Initialize database
-if USE_POSTGRES:
-    # Note: This needs to be awaited in the lifespan function
-    logger.info("Using PostgreSQL database")
-else:
-    init_simple_db()
-    logger.info("Using SQLite database")
-
-# Initialize Redis cache
-init_redis()
+# Initialize Redis cache (optional for development)
+try:
+    init_redis()
+    logger.info("Redis cache initialized")
+except Exception as e:
+    logger.warning(f"Redis cache not available: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Vantage AI application...")
 
-    # Initialize PostgreSQL if using it
-    if USE_POSTGRES:
-        try:
-            await init_connection_pool()
-            logger.info("PostgreSQL connection pool initialized")
-        except Exception as e:
-            logger.error(f"Failed to initialize PostgreSQL: {e}")
+    # Initialize PostgreSQL connection pool
+    try:
+        init_connection_pools()
+        logger.info("✅ PostgreSQL connection pools initialized")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize PostgreSQL connection pools: {e}")
+        raise
 
     # Initialize Redis cache
-    init_redis()
+    try:
+        init_redis()
+        logger.info("✅ Redis cache initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ Redis cache not available: {e}")
 
     # Initialize OAuth manager with Redis client
-    from .infrastructure.cache.redis_cache import redis_client
-    # OAuth manager is already initialized in the module
+    try:
+        from .infrastructure.cache.redis_cache import redis_client
+        # OAuth manager is already initialized in the module
+        logger.info("✅ OAuth manager initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ OAuth manager not available: {e}")
 
     # Initialize GDPR manager with Redis client
-    init_gdpr_manager(redis_client)
+    try:
+        init_gdpr_manager(redis_client)
+        logger.info("✅ GDPR manager initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ GDPR manager not available: {e}")
 
     # Initialize rate limiter with Redis client
-    init_rate_limiter(redis_client)
+    try:
+        init_rate_limiter(redis_client)
+        logger.info("✅ Rate limiter initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ Rate limiter not available: {e}")
 
-    # Initialize performance modules
-    init_connection_pools()
-
-    logger.info("Vantage AI application started successfully")
+    logger.info("✅ Vantage AI application started successfully")
 
     yield
 
     # Shutdown
     logger.info("Shutting down Vantage AI application...")
 
+    # Close PostgreSQL connections
+    try:
+        await close_connection_pools()
+        logger.info("✅ PostgreSQL connection pools closed successfully")
+    except Exception as e:
+        logger.warning(f"⚠️ Error closing database connection pools: {e}")
+
     # Close database connections
-    if USE_POSTGRES:
-        try:
-            await close_connection_pool()
-        except Exception as e:
-            logger.warning(f"Error closing database connections: {e}")
+    try:
+        await close_db()
+        logger.info("✅ PostgreSQL connections closed successfully")
+    except Exception as e:
+        logger.warning(f"⚠️ Error closing database connections: {e}")
 
     # Close Redis connections
-    close_redis()
+    try:
+        close_redis()
+        logger.info("✅ Redis connections closed successfully")
+    except Exception as e:
+        logger.warning(f"⚠️ Error closing Redis connections: {e}")
 
-    logger.info("Vantage AI application shutdown complete")
+    logger.info("✅ Vantage AI application shutdown complete")
 
 # Create FastAPI app
 app = FastAPI(
@@ -181,7 +191,8 @@ async def add_security_headers_and_rate_limiting(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    # More permissive CSP to allow Swagger UI and ReDoc to work
+    response.headers["Content-Security-Policy"] = "default-src 'self' https:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' https: data:; font-src 'self' https: data:"
 
     # Remove server information
     if "server" in response.headers:
@@ -189,37 +200,41 @@ async def add_security_headers_and_rate_limiting(request: Request, call_next):
 
     return response
 
-# Include DLD integration routes
-app.include_router(dld_router)
-app.include_router(real_dld_router)
-app.include_router(realtime_dld_router)
+# Include unified DLD routes
+app.include_router(unified_dld_router)
 app.include_router(pipeline_router)
-app.include_router(comprehensive_dld_router)
 
 # Include new API routes
 app.include_router(market_router)
 app.include_router(projects_router)
 app.include_router(normalization_router)
-app.include_router(vantage_score_router)
-app.include_router(market_demo_router)
 app.include_router(system_router)
 app.include_router(auth_router)
 app.include_router(gdpr_router)
 app.include_router(developer_router)
 app.include_router(ai_router)
 app.include_router(analytics_router)
+app.include_router(area_mapping_router)
 
 
-# Configure Sentry
-sentry_sdk.init(
-    dsn=os.getenv('SENTRY_DSN'),
-    integrations=[
-        FastApiIntegration(),
-        SqlalchemyIntegration(),
-    ],
-    traces_sample_rate=1.0,
-    profiles_sample_rate=1.0,
-    )
+# Configure Sentry only if DSN is provided
+sentry_dsn = os.getenv('SENTRY_DSN')
+if sentry_dsn:
+    try:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            integrations=[
+                FastApiIntegration(),
+                SqlalchemyIntegration(),
+            ],
+            traces_sample_rate=1.0,
+            profiles_sample_rate=1.0,
+        )
+        logger.info("Sentry initialized successfully")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Sentry: {e}")
+else:
+    logger.info("Sentry DSN not provided, skipping Sentry initialization")
 
 if __name__ == "__main__":
     import uvicorn

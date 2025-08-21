@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 # Import your models here
-from src.propcalc.infrastructure.database.models_simple import Base
+from src.propcalc.infrastructure.database.models import Base
 from src.propcalc.config.settings import get_settings
 
 # this is the Alembic Config object, which provides
@@ -98,8 +98,20 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # Handle async migrations
-    asyncio.run(run_async_migrations())
+    # Use synchronous migrations for now
+    from sqlalchemy import create_engine
+    from src.propcalc.infrastructure.database.database import get_db
+    
+    engine = create_engine(get_url())
+    
+    with engine.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata
+        )
+        
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():

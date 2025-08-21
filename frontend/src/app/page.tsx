@@ -81,6 +81,62 @@ export default function Home() {
           </CardContent>
         </Card>
 
+        {/* Region Analytics */}
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <MapPin className="h-6 w-6 text-indigo-600" />
+              <CardTitle>Region Analytics</CardTitle>
+            </div>
+            <CardDescription>
+              Comprehensive analysis of Dubai real estate regions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                • Area mapping & insights<br/>
+                • Price trends by region<br/>
+                • Developer analysis<br/>
+                • Market comparisons
+              </div>
+              <Link href="/region-analytics">
+                <Button className="w-full" variant="outline">
+                  View Analytics
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* DLD Analytics */}
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <BarChart3 className="h-6 w-6 text-emerald-600" />
+              <CardTitle>DLD Analytics</CardTitle>
+            </div>
+            <CardDescription>
+              Comprehensive DLD data analysis and market insights
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                • Market overview & trends<br/>
+                • Portfolio analysis<br/>
+                • Strategic insights<br/>
+                • Investment recommendations
+              </div>
+              <Link href="/dld-analytics">
+                <Button className="w-full" variant="outline">
+                  View Analytics
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* KML Viewer */}
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>

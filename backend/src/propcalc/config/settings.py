@@ -21,28 +21,28 @@ class Settings(BaseSettings):
     
     # Database
     database_url: str = Field(
-        default="postgresql://vantage_user:vantage_password@localhost:5432/vantage_ai",
+        default="postgresql://vantage_user:vantage_password@postgres:5432/vantage_ai",
         description="Database connection URL"
     )
     
     # API
     api_prefix: str = Field(default="/api", description="API prefix")
-    cors_origins: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8080"],
-        description="CORS allowed origins"
+    cors_origins: Optional[List[str]] = Field(
+        default=None,
+        description="CORS allowed origins (use localhost only in development)"
     )
     
     # Security
     secret_key: str = Field(
-        default="your-secret-key-change-in-production",
-        description="Secret key for JWT tokens"
+        default="",
+        description="Secret key for JWT tokens (MUST be set via environment variable)"
     )
     algorithm: str = Field(default="HS256", description="JWT algorithm")
     access_token_expire_minutes: int = Field(default=30, description="Access token expiration in minutes")
     
     # Redis
     redis_url: str = Field(
-        default="redis://localhost:6379/0",
+        default="redis://redis:6379/0",
         description="Redis connection URL"
     )
     
@@ -109,12 +109,36 @@ class Settings(BaseSettings):
             raise ValueError(f"Environment must be one of {allowed}")
         return value
 
+    @field_validator("secret_key")
+    def validate_secret_key(cls, v: str) -> str:
+        if not v or v.strip() == "":
+            raise ValueError("SECRET_KEY must be set via environment variable")
+        if len(v) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long")
+        return v
+
     @field_validator("log_level")
     def validate_log_level(cls, v: str) -> str:
         allowed = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if v.upper() not in allowed:
             raise ValueError(f"Log level must be one of {allowed}")
         return v.upper()
+    
+    @field_validator("cors_origins", mode="before")
+    def validate_cors_origins(cls, v):
+        """Handle CORS origins from environment or use defaults"""
+        if v is None or v == "":
+            # If not set in environment, use default production values
+            return ["https://propcalc.ai", "https://www.propcalc.ai"]
+        if isinstance(v, str):
+            # If it's a string from environment, try to parse as JSON
+            import json
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                # If parsing fails, split by comma and strip whitespace
+                return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
     
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False
@@ -135,6 +159,22 @@ class DevelopmentSettings(Settings):
     environment: str = "development"
     log_level: str = "DEBUG"
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8080", "http://127.0.0.1:3000"]
+    
+    @field_validator("cors_origins", mode="before")
+    def validate_dev_cors_origins(cls, v):
+        """Override CORS origins for development"""
+        return ["http://localhost:3000", "http://localhost:8080", "http://127.0.0.1:3000"]
+    
+    # Override secret key validation for development
+    @field_validator("secret_key")
+    def validate_secret_key(cls, v: str) -> str:
+        if not v or v.strip() == "":
+            # In development, generate a secure random key if none provided
+            import secrets
+            return secrets.token_urlsafe(32)
+        if len(v) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long")
+        return v
 
 class StagingSettings(Settings):
     """Staging environment settings"""
@@ -148,6 +188,11 @@ class ProductionSettings(Settings):
     debug: bool = False
     log_level: str = "WARNING"
     cors_origins: List[str] = ["https://propcalc.ai", "https://www.propcalc.ai"]
+    
+    @field_validator("cors_origins", mode="before")
+    def validate_prod_cors_origins(cls, v):
+        """Override CORS origins for production"""
+        return ["https://propcalc.ai", "https://www.propcalc.ai"]
 
 def get_environment_settings() -> Settings:
     """Get environment-specific settings"""

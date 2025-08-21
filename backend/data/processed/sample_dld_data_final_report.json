@@ -1,0 +1,99 @@
+{
+  "file_info": {
+    "file_name": "sample_dld_data.csv",
+    "file_size_mb": 0.0010099411010742188,
+    "file_path": "data/sample_dld_data.csv",
+    "processed_at": "2025-08-19T21:51:38.897080",
+    "processing_time_seconds": 0.01
+  },
+  "processing_summary": {
+    "total_records": 10,
+    "valid_records": 10,
+    "invalid_records": 0,
+    "success_rate_percent": 100.0,
+    "pipeline_steps": [
+      "CSV Parsing",
+      "Data Cleaning & Validation",
+      "Data Enrichment",
+      "Report Generation"
+    ]
+  },
+  "data_quality_metrics": {
+    "completeness": {
+      "developer_name": 100.0,
+      "project_name": 100.0,
+      "unit_number": 100.0,
+      "floor_number": 100.0,
+      "bedrooms": 80.0,
+      "bathrooms": 100.0,
+      "parking_spaces": 100.0
+    },
+    "avg_data_quality_score": 94.0,
+    "price_statistics": {
+      "min_price": 950000.0,
+      "max_price": 12000000.0,
+      "avg_price": 4125000.0,
+      "median_price": 3200000.0,
+      "total_value": 41250000.0
+    },
+    "area_statistics": {
+      "min_area": 800.0,
+      "max_area": 6000.0,
+      "avg_area": 2510.0,
+      "median_area": 2500.0
+    },
+    "total_records_analyzed": 10
+  },
+  "investment_analysis_summary": {
+    "investment_potential_distribution": {
+      "Excellent": 5,
+      "Very Good": 4,
+      "Good": 1
+    },
+    "market_segment_distribution": {
+      "Premium": 8,
+      "Mid-Range": 1,
+      "Luxury": 1
+    },
+    "rental_yield_statistics": {
+      "min_yield": 59.73,
+      "max_yield": 126.0,
+      "avg_yield": 89.64,
+      "count_with_yield": 10
+    },
+    "total_investment_opportunities": 10
+  },
+  "invalid_records_summary": {
+    "count": 0,
+    "error_types": {}
+  },
+  "pipeline_configuration": {
+    "enable_cleaning": true,
+    "enable_enrichment": true,
+    "enable_validation": true,
+    "save_intermediate_results": true,
+    "max_processing_time_minutes": 30
+  },
+  "database_results": {
+    "success": true,
+    "areas_created": 10,
+    "transactions_saved": 10,
+    "transactions_skipped": 0,
+    "error_messages": [],
+    "database_statistics": {
+      "total_transactions": 0,
+      "total_areas": 0,
+      "latest_transaction_date": null,
+      "total_transaction_value_aed": 0,
+      "updated_at": "2025-08-19 21:51:39.096461",
+      "error": "'Select' object has no attribute 'count'"
+    },
+    "integrity_check": {
+      "is_valid": false,
+      "issues": [
+        "Validation error: 'Select' object has no attribute 'count'"
+      ],
+      "checked_at": "2025-08-19 21:51:39.096539"
+    }
+  }
+}

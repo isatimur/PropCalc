@@ -1,0 +1,14 @@
+category,subcategory,count,avg_price_aed,avg_area_sqft,total_value_aed
+Property Type,Apartment,4,1862500.0,1325.0,7450000.0
+Property Type,Villa,2,10250000.0,5250.0,20500000.0
+Property Type,Townhouse,2,3500000.0,3000.0,7000000.0
+Property Type,Office,1,4500000.0,2500.0,4500000.0
+Property Type,Retail,1,1800000.0,800.0,1800000.0
+Area Classification,Premium Waterfront,3,4066666.67,2366.67,12200000.0
+Area Classification,Premium Central,3,3500000.0,2366.67,10500000.0
+Area Classification,Mid-Range Central,1,1800000.0,800.0,1800000.0
+Area Classification,Premium Suburban,2,7900000.0,4600.0,15800000.0
+Area Classification,Mid-Range Suburban,1,950000.0,900.0,950000.0
+Market Segment,Premium,8,3256250.0,2037.5,26050000.0
+Market Segment,Mid-Range,1,3200000.0,2800.0,3200000.0
+Market Segment,Luxury,1,12000000.0,6000.0,12000000.0

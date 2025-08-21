@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..domain.security.oauth2 import User, get_current_user
-from ..infrastructure.database.postgres_db import get_db_pool
+from ..infrastructure.database.postgres_db import get_db_instance
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,9 @@ router = APIRouter(prefix="/api/v1", tags=["market"])
 async def get_market_overview() -> dict[str, Any]:
     """Get real market overview data from database"""
     try:
-        db_pool = get_db_pool()
-
-        async with db_pool.acquire() as conn:
+        db_instance = await get_db_instance()
+        conn = await db_instance.get_connection()
+        try:
             # Get total transactions
             total_transactions = await conn.fetchval(
                 "SELECT COUNT(*) FROM dld_transactions"
@@ -109,6 +109,8 @@ async def get_market_overview() -> dict[str, Any]:
                 market_sentiment = "bearish"
             else:
                 market_sentiment = "neutral"
+        finally:
+            await db_instance.release_connection(conn)
 
             # Format top locations
             formatted_locations = []
@@ -154,9 +156,9 @@ async def get_market_overview() -> dict[str, Any]:
 async def get_market_trends(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
     """Get real market trends data from database"""
     try:
-        db_pool = get_db_pool()
-
-        async with db_pool.acquire() as conn:
+        db_instance = await get_db_instance()
+        conn = await db_instance.get_connection()
+        try:
             # Get monthly trends for the last 6 months
             monthly_trends = await conn.fetch(
                 """
@@ -202,6 +204,8 @@ async def get_market_trends(current_user: User = Depends(get_current_user)) -> d
             }
 
             return trends
+        finally:
+            await db_instance.release_connection(conn)
 
     except Exception as e:
         logger.error(f"Error getting market trends: {e}")
@@ -211,9 +215,9 @@ async def get_market_trends(current_user: User = Depends(get_current_user)) -> d
 async def get_market_locations(current_user: User = Depends(get_current_user)) -> list[dict[str, Any]]:
     """Get real market locations data from database"""
     try:
-        db_pool = get_db_pool()
-
-        async with db_pool.acquire() as conn:
+        db_instance = await get_db_instance()
+        conn = await db_instance.get_connection()
+        try:
             # Get location statistics
             locations = await conn.fetch(
                 """
@@ -248,6 +252,8 @@ async def get_market_locations(current_user: User = Depends(get_current_user)) -
                 })
 
             return formatted_locations
+        finally:
+            await db_instance.release_connection(conn)
 
     except Exception as e:
         logger.error(f"Error getting market locations: {e}")

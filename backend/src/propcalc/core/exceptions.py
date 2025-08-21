@@ -125,3 +125,10 @@ class DataProcessingError(PropCalcException):
     def __init__(self, message: str, processing_step: str | None = None) -> None:
         super().__init__(message, "DATA_PROCESSING_ERROR")
         self.processing_step = processing_step
+
+
+class DataLoadError(PropCalcException):
+    """Raised when data loading operations fail."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, "DATA_LOAD_ERROR")

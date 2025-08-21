@@ -34,13 +34,21 @@ def get_metrics_response() -> dict[str, Any]:
         logger.error(f"Error getting metrics: {e}")
         return {"error": str(e)}
 
-def track_request_metrics(request_path: str, response_time: float, status_code: int):
+def track_request_metrics(request_path: str, response_time: float = 0.0, status_code: int = 200):
     """Track request metrics"""
     try:
         # In a real implementation, this would store metrics
         logger.debug(f"Request: {request_path}, Time: {response_time}ms, Status: {status_code}")
     except Exception as e:
         logger.error(f"Error tracking request metrics: {e}")
+
+
+def record_operation(operation_name: str, metadata: dict | None = None) -> None:
+    """Compatibility shim used by comprehensive loader tests."""
+    try:
+        logger.debug("operation=%s metadata=%s", operation_name, metadata or {})
+    except Exception:
+        pass
 
 def get_uptime() -> float:
     """Get system uptime in seconds"""
