@@ -36,28 +36,36 @@ class PropertyData:
     source_id: str
     url: str
     title: str
-    price: Optional[float]
-    price_currency: str = "AED"
     location: str
     property_type: str
-    bedrooms: Optional[int]
-    bathrooms: Optional[int]
-    area_sqft: Optional[float]
-    area_sqm: Optional[float]
-    developer: Optional[str]
-    completion_date: Optional[str]
-    description: Optional[str]
-    amenities: List[str]
-    images: List[str]
-    coordinates: Optional[Dict[str, float]]
-    listing_date: Optional[str]
-    last_updated: Optional[str]
-    agent_name: Optional[str]
-    agent_phone: Optional[str]
-    agent_email: Optional[str]
+    price: Optional[float] = None
+    price_currency: str = "AED"
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    area_sqft: Optional[float] = None
+    area_sqm: Optional[float] = None
+    developer: Optional[str] = None
+    completion_date: Optional[str] = None
+    description: Optional[str] = None
+    amenities: List[str] = None
+    images: List[str] = None
+    coordinates: Optional[Dict[str, float]] = None
+    listing_date: Optional[str] = None
+    last_updated: Optional[str] = None
+    agent_name: Optional[str] = None
+    agent_phone: Optional[str] = None
+    agent_email: Optional[str] = None
     verification_status: str = "unverified"
-    data_quality_score: Optional[float]
-    raw_data: Dict[str, Any]
+    data_quality_score: Optional[float] = None
+    raw_data: Dict[str, Any] = None
+    
+    def __post_init__(self):
+        if self.amenities is None:
+            self.amenities = []
+        if self.images is None:
+            self.images = []
+        if self.raw_data is None:
+            self.raw_data = {}
 
 class BaseCrawler(ABC):
     """Base class for all property website crawlers"""
